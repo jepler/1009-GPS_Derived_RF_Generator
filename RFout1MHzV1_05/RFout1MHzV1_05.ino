@@ -66,7 +66,8 @@ void setup()
 
   //Program GPS to output RF
   if (setGPS_OutputFreq(SPEED_ARG)) {
-    Serial.println (F("GPS Initialized to output RF at " SPEED_STR "\nInitialization is complete.\n"));
+    Serial.print (F("GPS Initialized to output RF at "));
+    Serial.println (F(SPEED_STR "\nInitialization is complete.\n"));
     GPSOK = true;
   }
   else
@@ -78,12 +79,42 @@ void setup()
 
 //--------------------------
 
+void handle_serial() {
+  static uint8_t state = 0;
+  static uint32_t acc;
 
+  uint8_t ch = Serial.read();
+  if(ch == 'F') { state = 1; acc = 0; }
+  if(state == 1 && ch == '\n') {
+    if(setGPS_OutputFreq(acc)) {
+      Serial.print (F("GPS Initialized to output RF at "));
+      Serial.println (acc);
+      GPSOK = true;
+    }
+    else
+    {
+      Serial.println (F("Error! Could not program GPS!"));
+      GPSOK = false;
+    }
+    state = 0;
+  } else if(state) {
+    if (ch >= '0' && ch <= '9') {
+      acc = acc * 10 + ch - '0';
+    } else if (ch == 'M') {
+      acc *= 1000000lu;
+    } else if (ch == 'K') {
+      acc *= 1000lu;
+    }
+  }
+}
 
 
 //--------------------------  Main loop -----------------------
 void loop()
 {
+  while (Serial.available()) {
+    handle_serial();
+  }
   while (gps.available( gpsPort )) {
     fix = gps.read();
     if (fix.valid.location && fix.valid.date && fix.valid.time)
